@@ -1,45 +1,158 @@
 using UnityEngine;
+using TMPro;
 using UnityEngine.UI;
 
 public class DISCScoringSystem : MonoBehaviour
 {
-    // Struct untuk pertanyaan dan jawaban
+    // Question Setting
     [System.Serializable]
     public struct Question
     {
         public string questionText;
-        public string answerA; // Jawaban A
-        public string answerB; // Jawaban B
-        public string dimensionA; // Dimensi untuk Jawaban A
-        public string dimensionB; // Dimensi untuk Jawaban B
+        public string answerA;
+        public string answerB;
+        public string dimensionA;
+        public string dimensionB;
     }
-
-    // List pertanyaan
+    [Header("Question Setting")]
+    [Space(5)]
     public Question[] questions;
+    [Space(10)]
 
-    // UI Elements
-    public Text questionText;
+    // Question Attributes
+    [Header("Question Attributes")]
+    [Space(5)]
+    public GameObject questionPanel;
+    public TextMeshProUGUI questionText;
     public Button buttonA;
     public Button buttonB;
-    public Text buttonAText;
-    public Text buttonBText;
+    public TextMeshProUGUI buttonAText;
+    public TextMeshProUGUI buttonBText;
+    public TextMeshProUGUI resultText;
+    [Space(10)]
 
-    // Current question index
+    // Main Question
+    [Header("Main Question")]
+    [Space(5)]
+    public GameObject startPanel;
+    public TextMeshProUGUI startPanelQuestionText;
+     [Space(10)]
+
+[Header("Main Question")]
+    [Space(5)]
+    public Animator npcAnimator;  // Tambahkan referensi ke Animator NPC
+
+
     private int currentQuestionIndex = 0;
 
-    // Scoring variables
-    private int scoreD = 0; // Dominance
-    private int scoreI = 0; // Influence
-    private int scoreS = 0; // Steadiness
-    private int scoreC = 0; // Compliance
+    private int scoreD = 0;
+    private int scoreI = 0;
+    private int scoreS = 0;
+    private int scoreC = 0;
 
     void Start()
     {
-        // Assign button click events
         buttonA.onClick.AddListener(() => OnAnswerSelected("A"));
         buttonB.onClick.AddListener(() => OnAnswerSelected("B"));
 
-        // Load first question
+        if (startPanel != null)
+        {
+            startPanel.SetActive(true);
+            startPanel.transform.localScale = Vector3.zero;
+            startPanelQuestionText.transform.localScale = Vector3.zero;
+
+            AnimateStartPanelAndText();
+        }
+
+        questionPanel.SetActive(false);
+        questionPanel.transform.localScale = Vector3.zero;
+        questionText.transform.localScale = Vector3.zero;
+        buttonA.gameObject.SetActive(false);
+        buttonB.gameObject.SetActive(false);
+        buttonAText.transform.localScale = Vector3.zero;
+        buttonBText.transform.localScale = Vector3.zero;
+    }
+
+    void AnimateStartPanelAndText()
+    {
+        if (currentQuestionIndex < questions.Length)
+        {
+            startPanelQuestionText.text = questions[currentQuestionIndex].questionText;
+        }
+
+        LeanTween.scale(startPanel, Vector3.one, 0.5f).setEaseOutBack();
+        LeanTween.scale(startPanelQuestionText.gameObject, Vector3.one, 0.5f).setEaseOutBack();
+
+        LeanTween.delayedCall(2f, () =>
+        {
+            LeanTween.scale(startPanelQuestionText.gameObject, Vector3.zero, 0.5f).setEaseInBack();
+            LeanTween.scale(startPanel, Vector3.zero, 0.5f).setEaseInBack().setOnComplete(() =>
+            {
+                startPanel.SetActive(false);
+                AnimateQuestionPanelAndText();
+            });
+        });
+    }
+
+    void AnimateQuestionPanelAndText()
+    {
+        if (currentQuestionIndex < questions.Length)
+        {
+            questionText.text = questions[currentQuestionIndex].questionText;
+            buttonAText.text = questions[currentQuestionIndex].answerA;
+            buttonBText.text = questions[currentQuestionIndex].answerB;
+        }
+
+        questionPanel.SetActive(true);
+        buttonA.gameObject.SetActive(true);
+        buttonB.gameObject.SetActive(true);
+
+        questionPanel.transform.localScale = Vector3.zero;
+        questionText.transform.localScale = Vector3.zero;
+
+        LeanTween.scale(questionPanel, Vector3.one, 0.5f).setEaseOutBack();
+        LeanTween.scale(questionText.gameObject, Vector3.one, 0.5f).setEaseOutBack();
+
+        AnimateButtons();
+    }
+
+    void AnimateButtons()
+{
+    // Set the initial scale to 0.1 for buttons and their text
+    buttonA.transform.localScale = Vector3.one * 0.1f;
+    buttonB.transform.localScale = Vector3.one * 0.1f;
+    buttonAText.transform.localScale = Vector3.one * 0.1f;
+    buttonBText.transform.localScale = Vector3.one * 0.1f;
+
+    // Animate the scale to 7.5 for buttons
+    LeanTween.delayedCall(2f, () =>
+    {
+        LeanTween.scale(buttonA.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
+        
+        // Start the animation for NPC when button A appears
+        if (npcAnimator != null)
+        {
+            npcAnimator.SetTrigger("StartAnimation");  // Gantilah "StartAnimation" dengan trigger atau parameter yang sesuai di Animator
+        }
+    });
+    LeanTween.delayedCall(4f, () =>
+    {
+        LeanTween.scale(buttonB.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
+    });
+
+    // Animate the scale to 7.5 for the text of the buttons and synchronize it with the buttons
+    LeanTween.scale(buttonAText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
+    LeanTween.delayedCall(4f, () =>
+    {
+        LeanTween.scale(buttonBText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
+    });
+}
+
+
+
+
+    void StartQuiz()
+    {
         LoadQuestion();
     }
 
@@ -47,7 +160,6 @@ public class DISCScoringSystem : MonoBehaviour
     {
         if (currentQuestionIndex < questions.Length)
         {
-            // Load question and answers
             Question q = questions[currentQuestionIndex];
             questionText.text = q.questionText;
             buttonAText.text = q.answerA;
@@ -55,14 +167,12 @@ public class DISCScoringSystem : MonoBehaviour
         }
         else
         {
-            // All questions answered, show result
             ShowResult();
         }
     }
 
     void OnAnswerSelected(string answer)
     {
-        // Update scores based on selected answer
         Question q = questions[currentQuestionIndex];
         if (answer == "A")
         {
@@ -73,7 +183,6 @@ public class DISCScoringSystem : MonoBehaviour
             UpdateScore(q.dimensionB);
         }
 
-        // Move to next question
         currentQuestionIndex++;
         LoadQuestion();
     }
@@ -82,42 +191,27 @@ public class DISCScoringSystem : MonoBehaviour
     {
         switch (dimension)
         {
-            case "D":
-                scoreD++;
-                break;
-            case "I":
-                scoreI++;
-                break;
-            case "S":
-                scoreS++;
-                break;
-            case "C":
-                scoreC++;
-                break;
+            case "D": scoreD++; break;
+            case "I": scoreI++; break;
+            case "S": scoreS++; break;
+            case "C": scoreC++; break;
         }
     }
 
     void ShowResult()
     {
-        // Determine personality
-        string personality = DeterminePersonality();
-
-        // Show result (you can replace this with UI or scene transition)
-        Debug.Log($"Results:\nD: {scoreD}, I: {scoreI}, S: {scoreS}, C: {scoreC}");
-        Debug.Log($"Your DISC Personality: {personality}");
-    }
-
-    string DeterminePersonality()
-    {
-        // Find the highest score
         int maxScore = Mathf.Max(scoreD, scoreI, scoreS, scoreC);
+        string personality = "";
 
-        // Handle ties by priority (D > I > S > C)
-        if (scoreD == maxScore) return "Dominance";
-        if (scoreI == maxScore) return "Influence";
-        if (scoreS == maxScore) return "Steadiness";
-        if (scoreC == maxScore) return "Compliance";
+        if (maxScore == scoreD) personality = "Dominance";
+        else if (maxScore == scoreI) personality = "Influence";
+        else if (maxScore == scoreS) personality = "Steadiness";
+        else if (maxScore == scoreC) personality = "Compliance";
 
-        return "Unknown";
+        questionText.enabled = false;
+        buttonA.gameObject.SetActive(false);
+        buttonB.gameObject.SetActive(false);
+
+        resultText.text = $"Your DISC Personality: {personality}";
     }
 }
