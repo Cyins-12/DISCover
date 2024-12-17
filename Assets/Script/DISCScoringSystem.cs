@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using System.Collections;
 
 public class DISCScoringSystem : MonoBehaviour
 {
@@ -13,15 +14,16 @@ public class DISCScoringSystem : MonoBehaviour
         public string answerB;
         public string dimensionA;
         public string dimensionB;
-    }
-    [Header("Question Setting")]
-    [Space(5)]
-    public Question[] questions;
-    [Space(10)]
 
-    // Question Attributes
+        // GameObjects untuk visual jawaban
+        public GameObject visualA;
+        public GameObject visualB;
+    }
+
+    [Header("Question Setting")]
+    public Question[] questions;
+
     [Header("Question Attributes")]
-    [Space(5)]
     public GameObject questionPanel;
     public TextMeshProUGUI questionText;
     public Button buttonA;
@@ -29,19 +31,16 @@ public class DISCScoringSystem : MonoBehaviour
     public TextMeshProUGUI buttonAText;
     public TextMeshProUGUI buttonBText;
     public TextMeshProUGUI resultText;
-    [Space(10)]
 
-    // Main Question
     [Header("Main Question")]
-    [Space(5)]
     public GameObject startPanel;
     public TextMeshProUGUI startPanelQuestionText;
-     [Space(10)]
 
-[Header("Main Question")]
-    [Space(5)]
-    public Animator npcAnimator;  // Tambahkan referensi ke Animator NPC
+    [Header("Fade Effect")]
+    public Image fadeOverlay;
 
+    [Header("Character Animation")]
+    public Animator characterAnimator;
 
     private int currentQuestionIndex = 0;
 
@@ -52,9 +51,19 @@ public class DISCScoringSystem : MonoBehaviour
 
     void Start()
     {
+        // Pastikan overlay mulai dalam keadaan transparan
+        if (fadeOverlay != null)
+        {
+            Color color = fadeOverlay.color;
+            color.a = 0; // Transparan
+            fadeOverlay.color = color;
+        }
+
+        // Setup tombol
         buttonA.onClick.AddListener(() => OnAnswerSelected("A"));
         buttonB.onClick.AddListener(() => OnAnswerSelected("B"));
 
+        // Atur tampilan awal
         if (startPanel != null)
         {
             startPanel.SetActive(true);
@@ -113,47 +122,95 @@ public class DISCScoringSystem : MonoBehaviour
         LeanTween.scale(questionPanel, Vector3.one, 0.5f).setEaseOutBack();
         LeanTween.scale(questionText.gameObject, Vector3.one, 0.5f).setEaseOutBack();
 
+        TriggerCharacterAnimation();
+
         AnimateButtons();
     }
 
     void AnimateButtons()
-{
-    // Set the initial scale to 0.1 for buttons and their text
-    buttonA.transform.localScale = Vector3.one * 0.1f;
-    buttonB.transform.localScale = Vector3.one * 0.1f;
-    buttonAText.transform.localScale = Vector3.one * 0.1f;
-    buttonBText.transform.localScale = Vector3.one * 0.1f;
-
-    // Animate the scale to 7.5 for buttons
-    LeanTween.delayedCall(2f, () =>
     {
-        LeanTween.scale(buttonA.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
-        
-        // Start the animation for NPC when button A appears
-        if (npcAnimator != null)
+        buttonA.transform.localScale = Vector3.one * 0.1f;
+        buttonB.transform.localScale = Vector3.one * 0.1f;
+        buttonAText.transform.localScale = Vector3.one * 0.1f;
+        buttonBText.transform.localScale = Vector3.one * 0.1f;
+
+        LeanTween.delayedCall(2f, () =>
         {
-            npcAnimator.SetTrigger("StartAnimation");  // Gantilah "StartAnimation" dengan trigger atau parameter yang sesuai di Animator
+            LeanTween.scale(buttonA.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
+        });
+        LeanTween.delayedCall(4f, () =>
+        {
+            LeanTween.scale(buttonB.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
+        });
+
+        LeanTween.scale(buttonAText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
+        LeanTween.delayedCall(4f, () =>
+        {
+            LeanTween.scale(buttonBText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
+        });
+    }
+
+    void TriggerCharacterAnimation()
+    {
+        if (characterAnimator != null)
+        {
+            characterAnimator.SetTrigger("StartAnimation");
         }
-    });
-    LeanTween.delayedCall(4f, () =>
+    }
+
+    void OnAnswerSelected(string answer)
     {
-        LeanTween.scale(buttonB.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
-    });
+        Question q = questions[currentQuestionIndex];
 
-    // Animate the scale to 7.5 for the text of the buttons and synchronize it with the buttons
-    LeanTween.scale(buttonAText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
-    LeanTween.delayedCall(4f, () =>
+        // Nonaktifkan semua visual sebelum mengaktifkan yang sesuai
+        if (q.visualA != null) q.visualA.SetActive(false);
+        if (q.visualB != null) q.visualB.SetActive(false);
+
+        if (answer == "A")
+        {
+            UpdateScore(q.dimensionA);
+
+            // Aktifkan visual untuk jawaban A
+            if (q.visualA != null)
+                q.visualA.SetActive(true);
+        }
+        else if (answer == "B")
+        {
+            UpdateScore(q.dimensionB);
+
+            // Aktifkan visual untuk jawaban B
+            if (q.visualB != null)
+                q.visualB.SetActive(true);
+        }
+
+        currentQuestionIndex++;
+
+        StartCoroutine(FadeEffect(() => LoadQuestion()));
+    }
+
+    private IEnumerator FadeEffect(System.Action onFadeComplete)
     {
-        LeanTween.scale(buttonBText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
-    });
-}
+        yield return StartCoroutine(Fade(0, 1, 0.5f));
+        onFadeComplete?.Invoke();
+        yield return StartCoroutine(Fade(1, 0, 0.5f));
+    }
 
-
-
-
-    void StartQuiz()
+    private IEnumerator Fade(float startAlpha, float endAlpha, float duration)
     {
-        LoadQuestion();
+        float elapsed = 0;
+        Color color = fadeOverlay.color;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float alpha = Mathf.Lerp(startAlpha, endAlpha, elapsed / duration);
+            color.a = alpha;
+            fadeOverlay.color = color;
+            yield return null;
+        }
+
+        color.a = endAlpha;
+        fadeOverlay.color = color;
     }
 
     void LoadQuestion()
@@ -169,22 +226,6 @@ public class DISCScoringSystem : MonoBehaviour
         {
             ShowResult();
         }
-    }
-
-    void OnAnswerSelected(string answer)
-    {
-        Question q = questions[currentQuestionIndex];
-        if (answer == "A")
-        {
-            UpdateScore(q.dimensionA);
-        }
-        else if (answer == "B")
-        {
-            UpdateScore(q.dimensionB);
-        }
-
-        currentQuestionIndex++;
-        LoadQuestion();
     }
 
     void UpdateScore(string dimension)
