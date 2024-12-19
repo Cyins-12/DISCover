@@ -42,6 +42,20 @@ public class DISCScoringSystem : MonoBehaviour
     [Header("Character Animation")]
     public Animator characterAnimator;
 
+    [Header("Teleportation Point")]
+    public Transform teleportationStartPoint; // Titik teleportasi untuk pemain
+    public GameObject player; // Referensi ke player (rig atau kamera utama VR)
+
+    [Header("Result Images")]
+    public Image resultImage; // Tempat untuk menampilkan gambar hasil DISC
+    public Sprite dominanceImage; // Gambar untuk "Dominance"
+    public Sprite influenceImage; // Gambar untuk "Influence"
+    public Sprite steadinessImage; // Gambar untuk "Steadiness"
+    public Sprite complianceImage; // Gambar untuk "Compliance"
+
+    [Header("Result Button")]
+    public Button resultButton; // Tombol yang muncul bersamaan dengan hasil
+
     private int currentQuestionIndex = 0;
 
     private int scoreD = 0;
@@ -80,6 +94,9 @@ public class DISCScoringSystem : MonoBehaviour
         buttonB.gameObject.SetActive(false);
         buttonAText.transform.localScale = Vector3.zero;
         buttonBText.transform.localScale = Vector3.zero;
+
+        // Set tombol hasil sebagai tidak aktif pada awalnya
+        resultButton.gameObject.SetActive(false);
     }
 
     void AnimateStartPanelAndText()
@@ -92,13 +109,16 @@ public class DISCScoringSystem : MonoBehaviour
         LeanTween.scale(startPanel, Vector3.one, 0.5f).setEaseOutBack();
         LeanTween.scale(startPanelQuestionText.gameObject, Vector3.one, 0.5f).setEaseOutBack();
 
+        // Pastikan questionText di questionPanel tidak muncul saat startPanel tampil
+        questionText.gameObject.SetActive(false);
+
         LeanTween.delayedCall(2f, () =>
         {
             LeanTween.scale(startPanelQuestionText.gameObject, Vector3.zero, 0.5f).setEaseInBack();
             LeanTween.scale(startPanel, Vector3.zero, 0.5f).setEaseInBack().setOnComplete(() =>
             {
                 startPanel.SetActive(false);
-                AnimateQuestionPanelAndText();
+                AnimateQuestionPanelAndText(); // Lanjutkan animasi panel pertanyaan setelah start panel selesai
             });
         });
     }
@@ -119,8 +139,13 @@ public class DISCScoringSystem : MonoBehaviour
         questionPanel.transform.localScale = Vector3.zero;
         questionText.transform.localScale = Vector3.zero;
 
+        // Aktifkan questionText hanya setelah questionPanel mulai muncul
         LeanTween.scale(questionPanel, Vector3.one, 0.5f).setEaseOutBack();
-        LeanTween.scale(questionText.gameObject, Vector3.one, 0.5f).setEaseOutBack();
+        LeanTween.delayedCall(0.2f, () =>
+        {
+            questionText.gameObject.SetActive(true);
+            LeanTween.scale(questionText.gameObject, Vector3.one, 0.5f).setEaseOutBack();
+        });
 
         TriggerCharacterAnimation();
 
@@ -129,23 +154,39 @@ public class DISCScoringSystem : MonoBehaviour
 
     void AnimateButtons()
     {
+        Question q = questions[currentQuestionIndex];
+
+        // Atur skala awal tombol dan teks
         buttonA.transform.localScale = Vector3.one * 0.1f;
         buttonB.transform.localScale = Vector3.one * 0.1f;
         buttonAText.transform.localScale = Vector3.one * 0.1f;
         buttonBText.transform.localScale = Vector3.one * 0.1f;
 
+        // Aktifkan visual A terlebih dahulu dengan delay 4 detik
         LeanTween.delayedCall(2f, () =>
         {
+            if (q.visualA != null)
+            {
+                q.visualA.SetActive(true);
+                q.visualA.transform.localScale = Vector3.one * 0.1f;
+                LeanTween.scale(q.visualA, Vector3.one, 0.5f).setEaseOutBack();
+            }
+
             LeanTween.scale(buttonA.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
-        });
-        LeanTween.delayedCall(4f, () =>
-        {
-            LeanTween.scale(buttonB.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
+            LeanTween.scale(buttonAText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
         });
 
-        LeanTween.scale(buttonAText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
-        LeanTween.delayedCall(4f, () =>
+        // Aktifkan visual B dan tombol B dengan delay 2 detik setelah A
+        LeanTween.delayedCall(4f, () => // 4 detik untuk A + 2 detik untuk B
         {
+            if (q.visualB != null)
+            {
+                q.visualB.SetActive(true);
+                q.visualB.transform.localScale = Vector3.one * 0.1f;
+                LeanTween.scale(q.visualB, Vector3.one, 0.5f).setEaseOutBack();
+            }
+
+            LeanTween.scale(buttonB.gameObject, Vector3.one * 7.5f, 0.5f).setEaseOutBounce();
             LeanTween.scale(buttonBText.gameObject, Vector3.one * 0.9f, 0.5f).setEaseOutBounce();
         });
     }
@@ -169,18 +210,10 @@ public class DISCScoringSystem : MonoBehaviour
         if (answer == "A")
         {
             UpdateScore(q.dimensionA);
-
-            // Aktifkan visual untuk jawaban A
-            if (q.visualA != null)
-                q.visualA.SetActive(true);
         }
         else if (answer == "B")
         {
             UpdateScore(q.dimensionB);
-
-            // Aktifkan visual untuk jawaban B
-            if (q.visualB != null)
-                q.visualB.SetActive(true);
         }
 
         currentQuestionIndex++;
@@ -190,8 +223,26 @@ public class DISCScoringSystem : MonoBehaviour
 
     private IEnumerator FadeEffect(System.Action onFadeComplete)
     {
+        // Fade in (Layar menjadi hitam)
         yield return StartCoroutine(Fade(0, 1, 0.5f));
+
+        // Teleport pemain setelah layar menjadi hitam (fade-in selesai)
+        if (teleportationStartPoint != null && player != null)
+        {
+            // Teleport pemain ke posisi yang diinginkan (posisi teleportationStartPoint)
+            player.transform.position = teleportationStartPoint.position;
+            player.transform.rotation = teleportationStartPoint.rotation; // Jika perlu, ikutkan rotasi
+        }
+
+        questionPanel.gameObject.SetActive(false);
+        buttonA.gameObject.SetActive(false);
+        buttonB.gameObject.SetActive(false);
+        yield return new WaitForSeconds(1f);
+
+        // Lanjutkan dengan onFadeComplete setelah delay
         onFadeComplete?.Invoke();
+
+        // Fade out (Layar kembali transparan)
         yield return StartCoroutine(Fade(1, 0, 0.5f));
     }
 
@@ -218,13 +269,23 @@ public class DISCScoringSystem : MonoBehaviour
         if (currentQuestionIndex < questions.Length)
         {
             Question q = questions[currentQuestionIndex];
+
+            // Perbarui teks pertanyaan dan jawaban
             questionText.text = q.questionText;
             buttonAText.text = q.answerA;
             buttonBText.text = q.answerB;
+
+            // Tampilkan animasi start panel sebelum ke animasi pertanyaan
+            startPanel.SetActive(true);
+            startPanel.transform.localScale = Vector3.zero;
+            startPanelQuestionText.text = q.questionText;
+            startPanelQuestionText.transform.localScale = Vector3.zero;
+
+            AnimateStartPanelAndText(); // Tambahkan animasi untuk transisi ke pertanyaan baru
         }
         else
         {
-            ShowResult();
+            ShowResult(); // Tampilkan hasil jika semua pertanyaan selesai
         }
     }
 
@@ -254,5 +315,25 @@ public class DISCScoringSystem : MonoBehaviour
         buttonB.gameObject.SetActive(false);
 
         resultText.text = $"Your DISC Personality: {personality}";
+
+        // Ganti gambar sesuai dengan hasil
+        switch (personality)
+        {
+            case "Dominance":
+                resultImage.sprite = dominanceImage;
+                break;
+            case "Influence":
+                resultImage.sprite = influenceImage;
+                break;
+            case "Steadiness":
+                resultImage.sprite = steadinessImage;
+                break;
+            case "Compliance":
+                resultImage.sprite = complianceImage;
+                break;
+        }
+
+        resultImage.gameObject.SetActive(true); // Tampilkan gambar hasil
+        resultButton.gameObject.SetActive(true); // Tampilkan tombol setelah hasil muncul
     }
 }
